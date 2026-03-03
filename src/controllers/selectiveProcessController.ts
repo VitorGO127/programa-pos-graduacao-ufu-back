@@ -11,6 +11,7 @@ import PaginationService from '../services/paginationService';
 import ProcessDocumentDAL from '../DAL/processDocumentDAL';
 import SelectiveProcessSubscription from '../models/selectiveProcessSubscription';
 import ProcessDocumentFAL from '../FAL/processDocumentFAL';
+import Stages from '../enums/stages';
 
 const createSelectiveProcess = async (req: Request, res: Response, next: NextFunction) => {
     const { selectiveProcess } = req.body;
@@ -286,36 +287,66 @@ const saveSubscriptionInformation = async(req: Request, res: Response, next: Nex
 }
 
 const saveSubscriptionFiles = async(req: Request, res: Response, next: NextFunction) => {
-    let fileData: any = JSON.parse(req.body.file_data[0]);
-    const files: Express.Multer.File[] = req.files as Express.Multer.File[];
+    try {
+        const files: Express.Multer.File[] = req.files as Express.Multer.File[];
 
-    if (files !== undefined) {
-        let selectiveProcess: SelectiveProcess | undefined = await SelectiveProcessDAL.getSelectiveProcessById(fileData.processId);
+        if (!req.body?.file_data || !Array.isArray(req.body.file_data) || req.body.file_data.length === 0) {
+            return res.status(400).send('Dados de arquivo n??o informados');
+        }
+
+        if (files === undefined || files.length === 0) {
+            return res.status(400).send('Arquivos n??o informados');
+        }
+
+        let fileData: any = JSON.parse(req.body.file_data[0]);
+
+        const processId: number = parseInt(fileData.processId);
+        if (Number.isNaN(processId)) return res.status(400).send('Id do processo inv??lido');
+
+        let selectiveProcess: SelectiveProcess | undefined = await SelectiveProcessDAL.getSelectiveProcessById(processId);
         let subscription: SelectiveProcessSubscription | undefined = await SelectiveProcessDAL.getSelectiveProcessSubscriptionByUserEmailAndProcessId(
-                                                                        fileData.applicantEmail, fileData.processId
+                                                                        fileData.applicantEmail, processId
                                                                     );
 
-        if (selectiveProcess === undefined) return res.status(400).send('Processo seletivo não encontrado');
-        if (subscription === undefined) return res.status(400).send('Inscrição não encontrada');
+        if (selectiveProcess === undefined) return res.status(400).send('Processo seletivo n??o encontrado');
+        if (subscription === undefined) return res.status(400).send('Inscri????o n??o encontrada');
 
         for (let x = 0; x < files.length; x++) {   
             fileData = JSON.parse(req.body.file_data[x]);
 
-            let processDocument: ProcessDocument | undefined = await ProcessDocumentDAL.getDocumentById(fileData.docId);
+            const docId: number = parseInt(fileData.docId);
+            if (Number.isNaN(docId)) return res.status(400).send('Id do documento inv??lido');
+
+            let processDocument: ProcessDocument | undefined = await ProcessDocumentDAL.getDocumentById(docId);
             
             if (processDocument !== undefined) {
-                ProcessDocumentFAL.writeProcessDocumentSubmission(
-                    fileData.processId, 
+                const fileCount = fileData.fileCount === undefined || fileData.fileCount === '' ? undefined : parseInt(fileData.fileCount);
+                if (fileData.fileCount !== undefined && Number.isNaN(fileCount)) {
+                    return res.status(400).send('N??mero do arquivo inv??lido');
+                }
+
+                // For evaluated documents, fileCount must be provided
+                if (![Stages.PersonalData, Stages.AcademicData].includes(processDocument.stage) && fileCount === undefined) {
+                    return res.status(400).send('N??mero do arquivo n??o informado');
+                }
+
+                await ProcessDocumentFAL.writeProcessDocumentSubmission(
+                    processId, 
                     subscription.id!,
                     selectiveProcess.name, 
                     fileData.applicantFullName, 
                     files[x], 
                     fileData.extension,
                     processDocument,
-                    fileData.fileCount
+                    fileCount
                 );
             }
         }
+
+        return res.status(200).send('Arquivos salvos com sucesso');
+    } catch (err) {
+        console.error(err);
+        return res.status(500).send('Houve um erro ao salvar os arquivos');
     }
 }
 
