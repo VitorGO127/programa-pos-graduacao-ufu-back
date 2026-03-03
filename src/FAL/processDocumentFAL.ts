@@ -20,34 +20,34 @@ export default class ProcessDocumentFAL {
         processDocument: ProcessDocument,
         fileCount?: number
     ): Promise<string> {
-        let path: string | undefined;
+        let filePathResult: string;
 
         try {
             if (file === undefined) throw 'Nenhum documento foi fornecido';
 
             const college: College | undefined = await CollegeDAL.getCollegeByProcessId(processId);
 
-            const filePath: string = `${config.files.basePath}${college?.name}/${processName}/${applicantFullName}/${Stages[processDocument.stage]}/`;
+            const filePath: string = path.join(config.files.basePath, college?.name || 'UnknownCollege', processName, applicantFullName, Stages[processDocument.stage]);
 
             if (extension === undefined) throw 'Não foi possível identificar a extensão do arquivo';
 
             if (!fs.existsSync(filePath)) fs.mkdirSync(filePath, { recursive: true });
 
-            path = `${filePath}${processDocument.name}${fileCount !== undefined ? `_${fileCount}` : ''}.${extension}`;
+            filePathResult = path.join(filePath, `${processDocument.name}${fileCount !== undefined ? `_${fileCount}` : ''}.${extension}`);
 
             let buffer = new Uint8Array(file.buffer);
 
-            fs.writeFileSync(path, buffer);
+            fs.writeFileSync(filePathResult, buffer);
 
             if ([Stages.PersonalData, Stages.AcademicData].includes(processDocument.stage))
-                await ProcessDocumentDAL.updateProcessDocumentSubmissionFilePath(processId, subscriptionId, processDocument.id, path);
+                await ProcessDocumentDAL.updateProcessDocumentSubmissionFilePath(processId, subscriptionId, processDocument.id, filePathResult);
             else
-                await ProcessDocumentDAL.updateProcessDocumentEvaluatedSubmissionFilePath(processId, subscriptionId, processDocument.id, path, fileCount!);
+                await ProcessDocumentDAL.updateProcessDocumentEvaluatedSubmissionFilePath(processId, subscriptionId, processDocument.id, filePathResult, fileCount!);
         } catch (err) {
             throw err;
         }
 
-        return path;
+        return filePathResult;
     }
 
     public static async writeProcessDocumentEvaluatedSubmission(
@@ -68,7 +68,7 @@ export default class ProcessDocumentFAL {
 
             const college: College | undefined = await CollegeDAL.getCollegeByProcessId(processId);
             const documentName: string = evaluatedDocumentSubmission.processDocument.name;
-            const filePath: string = `${config.files.basePath}${college?.name}/${processName}/Inscricoes/${applicantFullName}/Documentos Avaliativos/`;
+            const filePath: string = path.join(config.files.basePath, college?.name || 'UnknownCollege', processName, 'Inscricoes', applicantFullName, 'Documentos Avaliativos');
 
             if (!fs.existsSync(filePath)) fs.mkdirSync(filePath, { recursive: true });
 
@@ -78,13 +78,12 @@ export default class ProcessDocumentFAL {
 
                 if (extension === undefined) throw `${documentName} - não foi possível indentificar a extensão do arquivo de número ${index + 1}`;
 
-                const path: string = `${filePath}${documentName}_${index + 1}.${extension}`;
+                const filePathResult: string = path.join(filePath, `${documentName}_${index + 1}.${extension}`);
 
-                let buffer = Buffer.from(submittedFile.file, 'base64');
+                const buffer = Buffer.from(submittedFile.file, 'base64');   
+                fs.writeFileSync(filePathResult, new Uint8Array(buffer));
 
-                fs.writeFileSync(path, buffer);
-
-                documentPaths.push({ filePath: path, index: index + 1 });
+                documentPaths.push({ filePath: filePathResult, index: index + 1 });
 
                 index += 1;
             }
@@ -96,17 +95,17 @@ export default class ProcessDocumentFAL {
     }
 
     public static getProcessDocumentSubmission(filePath: string): File | undefined {
-        let response: File | undefined;
+    let response: File | undefined;
 
         try {
             if (!fs.existsSync(filePath)) throw 'Documento não encontrado';
 
-            let buffer: Buffer = fs.readFileSync(filePath);
-            let documentName: string | undefined = filePath.split('/').pop();
+            const buffer: Buffer = fs.readFileSync(filePath);
+            const documentName: string | undefined = filePath.split('/').pop();
 
             if (documentName === undefined) throw 'Não foi possível obter o nome do documento';
 
-            response = new File([buffer], documentName);
+            response = new File([new Uint8Array(buffer)], documentName);
         } catch (err) {
             throw err;
         }

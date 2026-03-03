@@ -46,7 +46,7 @@ export default class CollegeDAL {
         let result: QueryResult<any> | undefined;
 
         try {
-            const query: string = `SELECT c.* FROM colleges c INNER JOIN selectiveProcesses p ON NULLIF(p.collegeId, '')::int = c.id WHERE p.id = $1`;
+            const query: string = `SELECT c.* FROM colleges c INNER JOIN selectiveProcesses p ON p.collegeId = c.id WHERE p.id = $1`;
             const values: any[] = [processId];
 
             result = await db.query(query, values);

@@ -33,13 +33,15 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         return res.status(500).send('Houve um erro ao realizar login');
     }
 
+    const normalizedRole = user.role === 'admin' ? 'administrator' : user.role;
+
     return res.status(200).send({ 
         token, 
         id: user.id,
         firstName: user.firstName, 
         middleName: user.middleName, 
         lastName: user.lastName, 
-        role: user.role, 
+        role: normalizedRole, 
         active: user.active,
         validated: user.validated
     });

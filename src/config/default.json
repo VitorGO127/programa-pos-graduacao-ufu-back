@@ -7,9 +7,9 @@
         "host": "",
         "service": "gmail",
         "port": 587,
-        "user": "guilhermebnj@gmail.com"
+        "user": "vitorgoliveira127@gmail.com"
     },
     "files": {
-        "basePath": "D:/Desktop/Work/Arquivos UFU/TCC/Terceiro Tema/Documentos/"
+        "basePath": "C:/Users/vitor/OneDrive/Documentos/Projetos/PPGCO/Files"
     }
 }

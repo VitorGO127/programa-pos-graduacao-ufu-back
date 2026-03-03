@@ -175,12 +175,16 @@ export default class ProcessDocumentDAL {
         return result;
     }
 
-    public static async updateProcessDocumentEvaluatedSubmissionFilePath(
+        public static async updateProcessDocumentEvaluatedSubmissionFilePath(
         processId: number, subscriptionId: number, documentId: number, filePath: string, index: number, client?: PoolClient
     ): Promise<QueryResult<any> | undefined> {
         let result: QueryResult<any> | undefined;
 
         try {
+            if (index === undefined || Number.isNaN(index)) {
+                throw 'N??mero do arquivo n??o informado';
+            }
+
             const query: string = 'UPDATE processEvaluatedDocumentAnswers SET submittedFilePath = $1 WHERE processId = $2 AND subscriptionId = $3 AND processDocumentId = $4 AND submittedFileNumber = $5'
         
             let values: any[] = [filePath, processId, subscriptionId, documentId, index];
